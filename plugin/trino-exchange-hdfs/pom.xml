@@ -15,7 +15,6 @@
     <properties>
         <air.compiler.fail-warnings>true</air.compiler.fail-warnings>
     </properties>
-
     <dependencies>
         <dependency>
             <groupId>com.google.errorprone</groupId>
