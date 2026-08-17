@@ -15,8 +15,14 @@ node("local") {
     env.JDKS_PATH = 'core/jdk'
     env.SKIP_TESTS = 'false'
     env.WORK_DIR = 'core/docker'
+    // Build against a private, per-workspace Maven repo (wiped every build) so
+    // stale or locally-installed jars in the node's ~/.m2 can never leak in
+    env.MAVEN_LOCAL_REPO = "${env.WORKSPACE}/.m2/repository"
 
     stage('Init') {
+        // start every build from a clean local Maven repo
+        sh "rm -rf \"${env.MAVEN_LOCAL_REPO}\""
+
         // use scripted pipeline style
         def current = sh(script: "cat \"${env.JDKS_PATH}/current\" | tr -d '\\n\\r'", returnStdout: true).trim()
         env.JDK_RELEASE = current
@@ -25,7 +31,7 @@ node("local") {
 
         env.JDK_DOWNLOAD_LINK = jdk_download_link
 
-        env.TRINO_VERSION = sh(script: './mvnw -f pom.xml --quiet help:evaluate -Dexpression=project.version -DforceStdout', returnStdout: true).trim()
+        env.TRINO_VERSION = sh(script: "./mvnw -f pom.xml --quiet -Dmaven.repo.local=\"${env.MAVEN_LOCAL_REPO}\" help:evaluate -Dexpression=project.version -DforceStdout", returnStdout: true).trim()
 
         echo "TRINO_VERSION=${env.TRINO_VERSION}"
         echo "JDK_DOWNLOAD_LINK=${env.JDK_DOWNLOAD_LINK}"
@@ -41,7 +47,7 @@ node("local") {
         sh "tar -xzf jdk24.tar.gz -C ${env.WORKSPACE}/jdk --strip-components=1"
         sh "rm jdk24.tar.gz"
 
-        sh "JAVA_HOME=${env.WORKSPACE}/jdk ${env.WORKSPACE}/mvnw clean package -DskipTests"
+        sh "JAVA_HOME=${env.WORKSPACE}/jdk ${env.WORKSPACE}/mvnw clean package -DskipTests -Dmaven.repo.local=\"${env.MAVEN_LOCAL_REPO}\""
 
         // Archive artifacts
         archiveArtifacts artifacts: "core/${env.SERVER_ARTIFACT}/target/${env.SERVER_ARTIFACT}-${env.TRINO_VERSION}.tar.gz", fingerprint: true, allowEmptyArchive: true
